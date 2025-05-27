@@ -41,6 +41,7 @@ from .views import (
     SourceOverview,
     SourceDetail,
     SpecificationHandler,
+    DeskewPage
 )
 
 from .views import MgetRubricMarkingTasks
@@ -123,6 +124,11 @@ urlpatterns = [
         SourceDetail.as_view(),
         name="api_source_detail",
     ),
+    path(
+        "api/deskew/",
+        DeskewPage.as_view(),
+        name="deskew_a_page"
+    )
 ]
 
 experimental_router = DefaultRouter(trailing_slash=True)

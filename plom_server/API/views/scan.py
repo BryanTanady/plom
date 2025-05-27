@@ -10,6 +10,8 @@ from django.utils.text import slugify
 from rest_framework.views import APIView
 from rest_framework.request import Request
 from rest_framework.response import Response
+from django.http import HttpResponse
+
 from rest_framework import status
 
 from plom.plom_exceptions import (
@@ -17,7 +19,7 @@ from plom.plom_exceptions import (
     PlomPushCollisionException,
     PlomBundleLockedException,
 )
-from plom_server.Scan.services import ScanService
+from plom_server.Scan.services import ScanService, DeskewService
 from .utils import _error_response
 
 
@@ -187,3 +189,24 @@ class ScanMapBundle(APIView):
                 status.HTTP_404_NOT_FOUND,
             )
         return Response({"hi": "hello"}, status=status.HTTP_200_OK)
+
+from rest_framework.permissions import AllowAny
+
+class DeskewPage(APIView):
+    authentication_classes = [] 
+    permission_classes = [AllowAny]
+
+    def post(self, request: Request):
+        ds = DeskewService()
+
+        scanned_image = request.FILES.get("scanned_image")
+        if not scanned_image:
+                return Response({"status": "Missing image"})
+        
+        try:
+            scan_bytes = scanned_image.read()
+            deskewed = ds.deskew_a_page(scan_bytes)
+            return HttpResponse(deskewed, content_type="application/json")
+        except ValueError as e:
+            return Response(e, status.HTTP_400_BAD_REQUEST)
+
