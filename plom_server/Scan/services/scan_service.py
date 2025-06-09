@@ -17,6 +17,7 @@ from datetime import datetime
 from io import BytesIO
 from math import ceil
 from typing import Any
+from pathlib import Path
 
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -66,9 +67,59 @@ from ..services.util import (
     check_bundle_object_is_neither_locked_nor_pushed,
 )
 from plom.plom_exceptions import PlomBundleLockedException, PlomPushCollisionException
-
+from plom_server.Rectangles.services import extract_rect_region_from_image, get_reference_qr_coords_for_page, get_reference_rectangle_for_page
+from PIL import Image
+from plom_server.Papers.models import ReferenceImage
 
 log = logging.getLogger(__name__)
+
+class DeskewService:
+    def deskew_a_page(self, 
+                    scanned_image: bytes, 
+        ):
+
+         # Wrap bytes in a file‐like buffer
+        buf = BytesIO(scanned_image)
+        # Let PIL open it (auto‐detects PNG, JPEG, etc.)
+        img = Image.open(buf)
+
+        # Read qr
+        qr_scanned_raw = QRextract(img, try_harder=True)
+        qr_scanned = ScanService.parse_qr_code([qr_scanned_raw])
+
+        # Parse version and page num from qr then confirm
+        corners = {"NE", "NW", "SW", "SE"}
+        valid_corners = set(qr_scanned.keys()).intersection(corners)
+        a_valid_corner = next(iter(valid_corners))
+        for var in ["page_num", "version_num"]:
+            base = qr_scanned[a_valid_corner]["page_info"][var] 
+            for corner in valid_corners:
+                if base != qr_scanned[corner]["page_info"][var]:
+                    raise ValueError("MISMATCH VERSION/PAGENUM!")
+        
+        page_num = qr_scanned[a_valid_corner]["page_info"]["page_num"] 
+        version = qr_scanned[a_valid_corner]["page_info"]["version_num"] 
+
+        # Get reference
+        rimg = ReferenceImage.objects.get(version=version, page_number=page_num)
+        # full page dims
+        full_region = (0, 0, rimg.width, rimg.height)
+
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            tmp.write(scanned_image)       # if you already have the bytes
+            tmp_path = tmp.name         # this is a str path you can pass around
+
+        full_region = (0.0, 0.0, float(rimg.width), float(rimg.height))
+
+        deskewed = extract_rect_region_from_image(
+            img=tmp_path,
+            qr_dict=qr_scanned,
+        left_f=0.0, top_f=0.0,
+            right_f=1.0, bottom_f=1.0,
+            reference_region=full_region,
+            pre_rotation=0,
+        )
+        return deskewed
 
 
 class ScanService:

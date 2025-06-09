@@ -4,7 +4,7 @@
 # Copyright (C) 2023-2024 Andrew Rechnitzer
 # Copyright (C) 2025 Colin B. Macdonald
 
-from .scan_service import ScanService
+from .scan_service import ScanService, DeskewService
 from .cast_service import ScanCastService
 from .image_process import PageImageProcessor
 from .qr_service import QRService

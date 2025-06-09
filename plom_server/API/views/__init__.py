@@ -51,6 +51,7 @@ from .scan import (
     ScanListBundles,
     ScanBundleActions,
     ScanMapBundle,
+    DeskewPage,
 )
 
 from .finish import (
